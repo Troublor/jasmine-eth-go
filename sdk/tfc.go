@@ -1,7 +1,7 @@
 package sdk
 
 import (
-	"github.com/Troublor/jasmine-go/token"
+	"github.com/Troublor/jasmine-eth-go/token"
 	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 )
@@ -31,42 +31,42 @@ func NewTFC(sdk *SDK, tfcAddress address) (tfc *TFC, err error) {
 /**
 Returns the name of the token, i.e. TFCToken
 */
-func (tfc *TFC) name() (name string) {
+func (tfc *TFC) Name() (name string) {
 	panic(UnimplementedError)
 }
 
 /**
 Returns the symbol of the token, i.e. TFC
 */
-func (tfc *TFC) symbol() (symbol string) {
+func (tfc *TFC) Symbol() (symbol string) {
 	panic(UnimplementedError)
 }
 
 /**
 Returns the number of decimals the token uses - e.g. 8, means to divide the token amount by 100000000 to get its user representation.
 */
-func (tfc *TFC) decimals() (decimals uint8) {
+func (tfc *TFC) Decimals() (decimals uint8) {
 	panic(UnimplementedError)
 }
 
 /**
 Returns the total token supply.
 */
-func (tfc *TFC) totalSupply() (totalSupply *big.Int) {
+func (tfc *TFC) TotalSupply() (totalSupply *big.Int) {
 	panic(UnimplementedError)
 }
 
 /**
 Returns the account balance with the provided address.
 */
-func (tfc *TFC) balanceOf(account address) (balance *big.Int, err error) {
+func (tfc *TFC) BalanceOf(account address) (balance *big.Int, err error) {
 	panic(UnimplementedError)
 }
 
 /**
 Returns the amount which spender is still allowed to withdraw from owner.
 */
-func (tfc *TFC) allowance(owner address, spender address) (amount *big.Int, err error) {
+func (tfc *TFC) Allowance(owner address, spender address) (amount *big.Int, err error) {
 	panic(UnimplementedError)
 }
 
@@ -77,7 +77,7 @@ Transfer the amount of balance from current account (specified in SDK) to the gi
 
 This function requires privateKey has been set in SDK.
 */
-func (tfc *TFC) transfer(to address, amount *big.Int) (err error) {
+func (tfc *TFC) Transfer(to address, amount *big.Int) (err error) {
 	if tfc.sdk.account == nil {
 		return NoPrivateKeyError
 	}
@@ -89,7 +89,7 @@ Transfer the amount of balance from the given "from" account to the given "to" a
 
 This function requires privateKey has been set in SDK, which will be used to sign the ethereum transaction.
 */
-func (tfc *TFC) transferFrom(from address, to string, amount *big.Int) (err error) {
+func (tfc *TFC) TransferFrom(from address, to string, amount *big.Int) (err error) {
 	if tfc.sdk.account == nil {
 		return NoPrivateKeyError
 	}
@@ -101,7 +101,7 @@ Allows spender to withdraw from the current account (specified in SDK) multiple 
 
 This function requires privateKey has been set in SDK.
 */
-func (tfc *TFC) approve(spender address, amount *big.Int) (err error) {
+func (tfc *TFC) Approve(spender address, amount *big.Int) (err error) {
 	if tfc.sdk.account == nil {
 		return NoPrivateKeyError
 	}
@@ -114,7 +114,7 @@ This function can only be called by account (specified in SDK) which has MINTER_
 
 This function requires privateKey has been set in SDK.
 */
-func (tfc *TFC) mint(to address, amount *big.Int) (err error) {
+func (tfc *TFC) Mint(to address, amount *big.Int) (err error) {
 	if tfc.sdk.account == nil {
 		return NoPrivateKeyError
 	}
