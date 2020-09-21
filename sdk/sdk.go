@@ -11,9 +11,6 @@ type SDK struct {
 
 	// optional account info
 	account *account // default account
-
-	// components
-	tfc *TFC // TFC ERC20 token
 }
 
 //NewSDK creates a new SDK instance with connection to blockchain endpoint
@@ -49,4 +46,12 @@ DefaultAccount returns the current default account in sdk (can be set via SetDef
 */
 func (sdk *SDK) DefaultAccount() *account {
 	return sdk.account
+}
+
+/**
+Creates a new TFC instance based on current sdk.
+This function is a wrapper of NewTFC()
+*/
+func (sdk *SDK) TFC(tfcAddress address) (tfc *TFC, err error) {
+	return NewTFC(sdk, tfcAddress)
 }
