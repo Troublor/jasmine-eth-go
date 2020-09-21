@@ -28,7 +28,7 @@ func NewSDK(blockchainEndpoint string) (sdk *SDK, error error) {
 }
 
 //setDefaultAccount sets the default account to sign ethereum transactions by providing its privateKey
-func (sdk *SDK) setDefaultAccount(privateKey string) (err error) {
+func (sdk *SDK) SetDefaultAccount(privateKey string) (err error) {
 	acc := &account{}
 	acc.privateKey, err = crypto.HexToECDSA(privateKey)
 	if err != nil {
@@ -42,4 +42,11 @@ func (sdk *SDK) setDefaultAccount(privateKey string) (err error) {
 	acc.address = crypto.PubkeyToAddress(*acc.publicKey)
 	sdk.account = acc
 	return nil
+}
+
+/**
+DefaultAccount returns the current default account in sdk (can be set via SetDefaultAccount())
+*/
+func (sdk *SDK) DefaultAccount() *account {
+	return sdk.account
 }
