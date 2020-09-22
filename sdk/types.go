@@ -11,8 +11,14 @@ type account struct {
 	publicKey  *ecdsa.PublicKey
 }
 
-type address string
+type Hash string
 
-func (addr address) Validate() bool {
+type Address string
+
+func (addr Address) Validate() bool {
 	panic(UnimplementedError)
+}
+
+func (addr Address) Address() common.Address {
+	return common.HexToAddress(string(addr))
 }

@@ -52,6 +52,6 @@ func (sdk *SDK) DefaultAccount() *account {
 Creates a new TFC instance based on current sdk.
 This function is a wrapper of NewTFC()
 */
-func (sdk *SDK) TFC(tfcAddress address) (tfc *TFC, err error) {
+func (sdk *SDK) TFC(tfcAddress Address) (tfc *TFC, err error) {
 	return NewTFC(sdk, tfcAddress)
 }

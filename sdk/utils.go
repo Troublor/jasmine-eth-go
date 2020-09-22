@@ -10,7 +10,7 @@ import (
 /**
 Generate a ethereum account.
 If any error happens inside, the third return value, err, will be non-nil.
-Otherwise err will be nil, with the first and second return value being address and privateKey of the generated account.
+Otherwise err will be nil, with the first and second return value being Address and privateKey of the generated account.
 */
 func GenerateEthAccount() (address string, privateKey string, err error) {
 	privateKeyECDSA, err := crypto.GenerateKey()
