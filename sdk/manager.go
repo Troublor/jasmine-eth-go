@@ -62,6 +62,18 @@ func (manager *Manager) Signer() (signerAddress Address, err error) {
 	return Address(addr.Hex()), err
 }
 
+func (manager *Manager) GetUnusedNonce() (nonce *big.Int, err error) {
+	for nonce = big.NewInt(0); ; nonce.Add(nonce, big.NewInt(1)) {
+		used, err := manager.IsNonceUsed(nonce)
+		if err != nil {
+			return nil, err
+		}
+		if !used {
+			return nonce, nil
+		}
+	}
+}
+
 func (manager *Manager) SignTFCClaim(recipient Address, amount *big.Int, nonce *big.Int, signer *Account) (signature string, err error) {
 	hash := solsha3.SoliditySHA3(
 		[]string{"address", "uint256", "uint256", "address"},

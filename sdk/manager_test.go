@@ -27,8 +27,13 @@ func TestManager_SignTFCClaim(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	nonce, err := manager.GetUnusedNonce()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// sign claim
-	sig, err := manager.SignTFCClaim(user.Address(), big.NewInt(1), big.NewInt(0), admin)
+	sig, err := manager.SignTFCClaim(user.Address(), big.NewInt(1), nonce, admin)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,7 +45,7 @@ func TestManager_SignTFCClaim(t *testing.T) {
 	sig = sig[:len(sig)-2] + "1C"
 
 	// claim TFC using sig
-	err = manager.ClaimTFCSync(context.Background(), big.NewInt(1), big.NewInt(0), sig, user)
+	err = manager.ClaimTFCSync(context.Background(), big.NewInt(1), nonce, sig, user)
 	if err != nil {
 		t.Fatal(err)
 	}
