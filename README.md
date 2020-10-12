@@ -24,7 +24,7 @@ admin := sdk.RetrieveAccount(privateKey)
 Sign a TFC claim message which will mint a certain amount of TFC token for a recipient address;
 ```go
 nonce, err := manager.GetUnusedNonce()
-signature := manager.SignTFCClaim(context.Background(), recipientAddress, amount, nonce, admin)
+signature := manager.SignTFCClaim(recipientAddress, amount, nonce, admin)
 ```
 
 The signature string can be given to user to claim TFC tokens by themselves. 
