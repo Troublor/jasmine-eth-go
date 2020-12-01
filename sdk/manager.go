@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"context"
-	"fmt"
 	"github.com/Troublor/jasmine-eth-go/token"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -84,7 +83,6 @@ func (manager *Manager) SignTFCClaim(recipient Address, amount *big.Int, nonce *
 			manager.address.Hex(),
 		},
 	)
-	fmt.Println(hexutils.BytesToHex(hash))
 
 	hash = solsha3.SoliditySHA3(
 		[]string{"string", "bytes32"},
