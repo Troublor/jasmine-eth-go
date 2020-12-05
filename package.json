@@ -1,6 +1,9 @@
 {
-  "name": "jasmine-sdk-go",
+  "name": "jasmine-eth-go",
   "version": "1.0.0",
+  "scripts": {
+    "test": "go test -v ./..."
+  },
   "dependencies": {
   }
 }

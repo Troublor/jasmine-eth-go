@@ -41,7 +41,7 @@ func TestSDK_DeployTFC(t *testing.T) {
 	defer mockEth.Stop()
 
 	sdk := NewSDKWithBackend(mockEth.Backend)
-	addressCh, errCh := sdk.DeployTFC(context.Background(), []Address{PredefinedAccounts[0].Address()}, []*big.Int{big.NewInt(1000)}, PredefinedAccounts[0])
+	addressCh, errCh := sdk.DeployTFC(context.Background(), PredefinedAccounts[0])
 	select {
 	case err := <-errCh:
 		t.Fatal(err)
@@ -54,7 +54,7 @@ func TestSDK_DeployTFC(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if balance.Cmp(big.NewInt(1000)) != 0 {
+		if balance.Cmp(big.NewInt(0)) != 0 {
 			t.Fatal("initial supply is not correct")
 		}
 	}

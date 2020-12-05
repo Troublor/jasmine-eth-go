@@ -144,7 +144,34 @@ This function can only be called by Account (specified in SDK) which has MINTER_
 This function requires privateKey has been set in SDK.
 */
 func (tfc *TFC) Mint(ctx context.Context, to Address, amount *big.Int, sender *Account) (doneCh chan interface{}, errCh chan error) {
-	panic(UnimplementedError)
+	doneCh = make(chan interface{}, 0)
+	errCh = make(chan error, 0)
+	auth := bind.NewKeyedTransactor(sender.privateKey)
+	tx, err := tfc.contract.Mint(auth, to.address(), amount)
+	if err != nil {
+		errCh <- err
+		return doneCh, errCh
+	}
+	receiptCh, eCh := tfc.AsyncTransaction(ctx, tx.Hash(), ConfirmationRequirement)
+	go func() {
+		select {
+		case <-receiptCh:
+			close(doneCh)
+		case err := <-eCh:
+			errCh <- err
+		}
+	}()
+	return doneCh, errCh
+}
+
+func (tfc *TFC) MintSync(ctx context.Context, to Address, amount *big.Int, sender *Account) (err error) {
+	doneCh, errCh := tfc.Mint(ctx, to, amount, sender)
+	select {
+	case <-doneCh:
+		return nil
+	case err := <-errCh:
+		return err
+	}
 }
 
 /* Anonymous wrappers */

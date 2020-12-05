@@ -3,10 +3,8 @@ package sdk
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"github.com/Troublor/jasmine-eth-go/token"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"math/big"
@@ -68,8 +66,8 @@ func (sdk *SDK) DefaultAccount() *Account {
 	return sdk.account
 }
 
-func (sdk *SDK) DeployTFCSync(ctx context.Context, initialHolders []Address, initialSupplies []*big.Int, deployer *Account) (tfcAddress Address, err error) {
-	tfcAddressCh, errCh := sdk.DeployTFC(ctx, initialHolders, initialSupplies, deployer)
+func (sdk *SDK) DeployTFCSync(ctx context.Context, deployer *Account) (tfcAddress Address, err error) {
+	tfcAddressCh, errCh := sdk.DeployTFC(ctx, deployer)
 	select {
 	case addr := <-tfcAddressCh:
 		return addr, nil
@@ -78,13 +76,9 @@ func (sdk *SDK) DeployTFCSync(ctx context.Context, initialHolders []Address, ini
 	}
 }
 
-func (sdk *SDK) DeployTFC(ctx context.Context, initialHolders []Address, initialSupplies []*big.Int, deployer *Account) (tfcAddressCh chan Address, errCh chan error) {
+func (sdk *SDK) DeployTFC(ctx context.Context, deployer *Account) (tfcAddressCh chan Address, errCh chan error) {
 	tfcAddressCh = make(chan Address, 1)
 	errCh = make(chan error, 1)
-	if len(initialHolders) != len(initialSupplies) {
-		errCh <- errors.New("the number of initial holders is not equal to the number of supplies")
-		return tfcAddressCh, errCh
-	}
 	auth := bind.NewKeyedTransactor(deployer.privateKey)
 	nonce, err := sdk.backend.PendingNonceAt(context.Background(), deployer.address)
 	if err != nil {
@@ -98,15 +92,7 @@ func (sdk *SDK) DeployTFC(ctx context.Context, initialHolders []Address, initial
 		errCh <- err
 		return tfcAddressCh, errCh
 	}
-	holders := make([]common.Address, len(initialHolders))
-	for i, holder := range initialHolders {
-		if !holder.IsValid() {
-			errCh <- InvalidAddressError
-			return tfcAddressCh, errCh
-		}
-		holders[i] = common.HexToAddress(string(holder))
-	}
-	_, tx, _, err := token.DeployTFCToken(auth, sdk.backend, holders, initialSupplies)
+	_, tx, _, err := token.DeployTFCToken(auth, sdk.backend, deployer.address, deployer.address)
 	if err != nil {
 		errCh <- err
 		return tfcAddressCh, errCh

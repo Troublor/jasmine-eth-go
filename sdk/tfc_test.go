@@ -14,7 +14,7 @@ func TestTFC_BasicInfo(t *testing.T) {
 	amount := big.NewInt(1000)
 
 	sdk := NewSDKWithBackend(mockEth.Backend)
-	address, err := sdk.DeployTFCSync(context.Background(), []Address{PredefinedAccounts[0].Address()}, []*big.Int{amount}, PredefinedAccounts[0])
+	address, err := sdk.DeployTFCSync(context.Background(), PredefinedAccounts[0])
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,6 +22,12 @@ func TestTFC_BasicInfo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	err = tfc.MintSync(context.Background(), PredefinedAccounts[0].Address(), amount, PredefinedAccounts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	balance, err := tfc.BalanceOf(PredefinedAccounts[0].Address())
 	if err != nil {
 		t.Fatal(err)
@@ -45,11 +51,16 @@ func TestTFC_Transfer(t *testing.T) {
 	amount := big.NewInt(1000)
 
 	sdk := NewSDKWithBackend(mockEth.Backend)
-	address, err := sdk.DeployTFCSync(context.Background(), []Address{PredefinedAccounts[0].Address()}, []*big.Int{amount}, PredefinedAccounts[0])
+	address, err := sdk.DeployTFCSync(context.Background(), PredefinedAccounts[0])
 	if err != nil {
 		t.Fatal(err)
 	}
 	tfc, err := sdk.TFC(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = tfc.MintSync(context.Background(), PredefinedAccounts[0].Address(), amount, PredefinedAccounts[0])
 	if err != nil {
 		t.Fatal(err)
 	}
