@@ -1,10 +1,14 @@
 package sdk
 
 import (
+	"bytes"
 	"context"
 	"github.com/Troublor/jasmine-eth-go/token"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	solsha3 "github.com/offchainlabs/go-solidity-sha3"
 	"github.com/status-im/keycard-go/hexutils"
@@ -135,4 +139,105 @@ func (manager *Manager) ClaimTFCSync(ctx context.Context, amount *big.Int, nonce
 	case err := <-errCh:
 		return err
 	}
+}
+
+func (manager *Manager) UntilClaimTFCComplete(ctx context.Context, recipient Address, amount *big.Int, nonce *big.Int, signature string, confirmationRequirement int) (doneCh chan interface{}, errCh chan error) {
+	// remove the prefix '0x' of signature
+	if strings.HasPrefix(signature, "0x") {
+		signature = signature[2:]
+	}
+	// trim signature
+	signature = strings.TrimSpace(signature)
+
+	doneCh = make(chan interface{}, 1)
+	errCh = make(chan error, 1)
+	go func() {
+		query := ethereum.FilterQuery{
+			Addresses: []common.Address{manager.address},
+		}
+		logsCh := make(chan types.Log)
+		sub, err := manager.backend.SubscribeFilterLogs(ctx, query, logsCh)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		defer sub.Unsubscribe()
+		contractAbi, err := abi.JSON(strings.NewReader(token.TFCManagerABI))
+		if err != nil {
+			errCh <- err
+			return
+		}
+
+		isTargetEvent := func(log types.Log) bool {
+			event := struct {
+				Recipient common.Address
+				Amount    *big.Int
+				Nonce     *big.Int
+				Sig       []byte
+			}{}
+			err := contractAbi.Unpack(&event, "ClaimTFC", log.Data)
+			if err != nil {
+				return false
+			}
+			event.Recipient = common.BytesToAddress(log.Topics[1].Bytes())
+			event.Amount = new(big.Int).SetBytes(log.Topics[2].Bytes())
+			event.Nonce = new(big.Int).SetBytes(log.Topics[3].Bytes())
+			return event.Recipient == recipient.address() &&
+				event.Amount.Cmp(amount) == 0 &&
+				event.Nonce.Cmp(nonce) == 0 &&
+				bytes.Compare(event.Sig, common.Hex2Bytes(signature)) == 0
+		}
+
+		var eventWaitingCtx context.Context
+		var eventWaitingCancel context.CancelFunc = func() {}
+		waitTxConfirm := func(txHash common.Hash) {
+			receiptCh, eCh := manager.provider.AsyncTransaction(eventWaitingCtx, txHash, confirmationRequirement)
+			select {
+			case <-ctx.Done():
+				if ctx.Err() != context.Canceled {
+					errCh <- ctx.Err()
+				}
+			case err := <-eCh:
+				errCh <- err
+			case <-receiptCh:
+				close(doneCh)
+			}
+		}
+
+		// check past events
+		pastLogs, err := manager.backend.FilterLogs(ctx, query)
+		for _, log := range pastLogs {
+			if !log.Removed && isTargetEvent(log) {
+				eventWaitingCtx, eventWaitingCancel = context.WithCancel(ctx)
+				go waitTxConfirm(log.TxHash)
+			}
+		}
+
+		for {
+			select {
+			case <-doneCh:
+				eventWaitingCancel()
+				return
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				eventWaitingCancel()
+				return
+			case err := <-sub.Err():
+				errCh <- err
+				eventWaitingCancel()
+				return
+			case log := <-logsCh:
+				if isTargetEvent(log) {
+					if log.Removed {
+						eventWaitingCancel()
+						continue
+					}
+					eventWaitingCtx, eventWaitingCancel = context.WithCancel(ctx)
+					go waitTxConfirm(log.TxHash)
+				}
+			}
+		}
+
+	}()
+	return doneCh, errCh
 }

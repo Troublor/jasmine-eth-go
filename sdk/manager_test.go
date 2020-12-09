@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 )
 
-func TestManager_SignTFCClaim(t *testing.T) {
+func TestManager_TFCClaim(t *testing.T) {
 	mockEth := NewMockEthereum()
 	mockEth.Start()
 	defer mockEth.Stop()
@@ -42,8 +43,6 @@ func TestManager_SignTFCClaim(t *testing.T) {
 	fmt.Println(user.Address())
 	fmt.Println(sig)
 
-	sig = sig[:len(sig)-2] + "1C"
-
 	// claim TFC using sig
 	err = manager.ClaimTFCSync(context.Background(), big.NewInt(1), nonce, sig, user)
 	if err != nil {
@@ -67,5 +66,52 @@ func TestManager_SignTFCClaim(t *testing.T) {
 
 	if balance.Cmp(big.NewInt(1)) != 0 {
 		t.Fatal("TFC claim failed")
+	}
+
+	// wait for confirmations
+	// cancel ctx
+	ctx, cancel := context.WithCancel(context.Background())
+	doneCh, errCh := manager.UntilClaimTFCComplete(ctx, user.Address(), big.NewInt(1), nonce, sig, 1)
+	time.Sleep(time.Millisecond * 100)
+	cancel()
+	select {
+	case <-doneCh:
+		t.Fatal()
+	case err := <-errCh:
+		if err != context.Canceled {
+			t.Fatal()
+		}
+	}
+
+	// zero confirmation requirement
+	doneCh, errCh = manager.UntilClaimTFCComplete(context.Background(), user.Address(), big.NewInt(1), nonce, sig, 0)
+	select {
+	case <-doneCh:
+	case err := <-errCh:
+		t.Fatal(err)
+	}
+
+	// 6 confirmation requirement
+	doneCh, errCh = manager.UntilClaimTFCComplete(context.Background(), user.Address(), big.NewInt(1), nonce, sig, 6)
+	time.Sleep(time.Millisecond * 100)
+	hasDone := func() (bool, error) {
+		select {
+		case <-doneCh:
+			return true, nil
+		case err := <-errCh:
+			return true, err
+		default:
+			return false, nil
+		}
+	}
+	for i := 0; i < 6; i++ {
+		if done, err := hasDone(); done || err != nil {
+			t.Fatal(err)
+		}
+		mockEth.Backend.Commit()
+		time.Sleep(time.Millisecond * 100)
+	}
+	if done, err := hasDone(); !done || err != nil {
+		t.Fatal(err)
 	}
 }

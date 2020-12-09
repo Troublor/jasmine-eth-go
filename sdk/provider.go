@@ -18,14 +18,13 @@ func NewProvider(backend Backend) *provider {
 	return &provider{backend: backend}
 }
 
-func (p *provider) getConfirmationCount(ctx context.Context, receipt *types.Receipt) (count int, err error) {
-	receiptBlockNumber := receipt.BlockNumber
-	receiptBlock, err := p.backend.BlockByNumber(ctx, receiptBlockNumber)
+func (p *provider) getConfirmationCount(ctx context.Context, blockNumber *big.Int, blockHash common.Hash) (count int, err error) {
+	blockAtNumber, err := p.backend.BlockByNumber(ctx, blockNumber)
 	if err != nil {
 		return math.MinInt32, err
 	}
-	if receiptBlock.Hash() != receipt.BlockHash {
-		// the receipt has been removed from history (due to reorg)
+	if blockAtNumber.Hash() != blockHash {
+		// the block has been removed from history (due to reorg)
 		return -1, nil
 	}
 	// the receipt is in canonical chain
@@ -34,7 +33,7 @@ func (p *provider) getConfirmationCount(ctx context.Context, receipt *types.Rece
 		return math.MinInt32, err
 	}
 	currentNumber := currentHeader.Number
-	c := big.NewInt(0).Sub(currentNumber, receiptBlockNumber)
+	c := big.NewInt(0).Sub(currentNumber, blockNumber)
 	if !c.IsInt64() || c.Int64() > math.MaxInt32 {
 		// if confirmation count is too large
 		return math.MaxInt32, nil
@@ -75,7 +74,7 @@ func (p *provider) AsyncTransaction(ctx context.Context, txHash common.Hash, con
 			}
 			// the transaction has already been mined
 			// check confirmation count
-			confirmationCount, err := p.getConfirmationCount(ctx, receipt)
+			confirmationCount, err := p.getConfirmationCount(ctx, receipt.BlockNumber, receipt.BlockHash)
 			if err != nil {
 				// there is some error when try to get confirmation count
 				errCh <- err
