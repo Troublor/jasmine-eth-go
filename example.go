@@ -1,6 +1,7 @@
 package jasmine_eth_go
 
 import (
+	"context"
 	"fmt"
 	"github.com/Troublor/jasmine-eth-go/sdk"
 	"math/big"
@@ -12,7 +13,7 @@ func checkErr(err error) {
 	}
 }
 func main() {
-	sdkObject, err := sdk.NewSDK("https://rinkeby.infura.io/ws/v3/e8e5b9ad18ad4daeb0e01a522a989d66")
+	sdkObject, err := sdk.NewSDK("ws://localhost:8545")
 	checkErr(err)
 
 	// get admin account using private key
@@ -33,5 +34,13 @@ func main() {
 	signature, err := manager.SignTFCClaim(recipient, amount, nonce, adminAccount)
 	checkErr(err)
 
-	fmt.Println(signature)
+	// wait for 6 block confirmations
+	confirmationRequirement := 6
+	doneCh, errCh := manager.UntilClaimTFCComplete(context.Background(), recipient, amount, nonce, signature, confirmationRequirement)
+	select {
+	case <-doneCh:
+		fmt.Println("TFC Claim confirmed")
+	case err = <-errCh:
+		panic(err)
+	}
 }
