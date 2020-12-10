@@ -1,7 +1,6 @@
 package sdk
 
 import (
-	"bytes"
 	"context"
 	"github.com/Troublor/jasmine-eth-go/token"
 	"github.com/ethereum/go-ethereum"
@@ -141,14 +140,7 @@ func (manager *Manager) ClaimTFCSync(ctx context.Context, amount *big.Int, nonce
 	}
 }
 
-func (manager *Manager) UntilClaimTFCComplete(ctx context.Context, recipient Address, amount *big.Int, nonce *big.Int, signature string, confirmationRequirement int) (doneCh chan interface{}, errCh chan error) {
-	// remove the prefix '0x' of signature
-	if strings.HasPrefix(signature, "0x") {
-		signature = signature[2:]
-	}
-	// trim signature
-	signature = strings.TrimSpace(signature)
-
+func (manager *Manager) UntilClaimTFCComplete(ctx context.Context, recipient Address, amount *big.Int, nonce *big.Int, confirmationRequirement int) (doneCh chan interface{}, errCh chan error) {
 	doneCh = make(chan interface{}, 1)
 	errCh = make(chan error, 1)
 	go func() {
@@ -184,8 +176,7 @@ func (manager *Manager) UntilClaimTFCComplete(ctx context.Context, recipient Add
 			event.Nonce = new(big.Int).SetBytes(log.Topics[3].Bytes())
 			return event.Recipient == recipient.address() &&
 				event.Amount.Cmp(amount) == 0 &&
-				event.Nonce.Cmp(nonce) == 0 &&
-				bytes.Compare(event.Sig, common.Hex2Bytes(signature)) == 0
+				event.Nonce.Cmp(nonce) == 0
 		}
 
 		var eventWaitingCtx context.Context

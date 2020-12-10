@@ -71,7 +71,7 @@ func TestManager_TFCClaim(t *testing.T) {
 	// wait for confirmations
 	// cancel ctx
 	ctx, cancel := context.WithCancel(context.Background())
-	doneCh, errCh := manager.UntilClaimTFCComplete(ctx, user.Address(), big.NewInt(1), nonce, sig, 1)
+	doneCh, errCh := manager.UntilClaimTFCComplete(ctx, user.Address(), big.NewInt(1), nonce, 1)
 	time.Sleep(time.Millisecond * 100)
 	cancel()
 	select {
@@ -84,7 +84,7 @@ func TestManager_TFCClaim(t *testing.T) {
 	}
 
 	// zero confirmation requirement
-	doneCh, errCh = manager.UntilClaimTFCComplete(context.Background(), user.Address(), big.NewInt(1), nonce, sig, 0)
+	doneCh, errCh = manager.UntilClaimTFCComplete(context.Background(), user.Address(), big.NewInt(1), nonce, 0)
 	select {
 	case <-doneCh:
 	case err := <-errCh:
@@ -92,7 +92,7 @@ func TestManager_TFCClaim(t *testing.T) {
 	}
 
 	// 6 confirmation requirement
-	doneCh, errCh = manager.UntilClaimTFCComplete(context.Background(), user.Address(), big.NewInt(1), nonce, sig, 6)
+	doneCh, errCh = manager.UntilClaimTFCComplete(context.Background(), user.Address(), big.NewInt(1), nonce, 6)
 	time.Sleep(time.Millisecond * 100)
 	hasDone := func() (bool, error) {
 		select {

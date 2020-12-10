@@ -33,10 +33,11 @@ func main() {
 	// sign message
 	signature, err := manager.SignTFCClaim(recipient, amount, nonce, adminAccount)
 	checkErr(err)
+	fmt.Println(signature)
 
 	// wait for 6 block confirmations
 	confirmationRequirement := 6
-	doneCh, errCh := manager.UntilClaimTFCComplete(context.Background(), recipient, amount, nonce, signature, confirmationRequirement)
+	doneCh, errCh := manager.UntilClaimTFCComplete(context.Background(), recipient, amount, nonce, confirmationRequirement)
 	select {
 	case <-doneCh:
 		fmt.Println("TFC Claim confirmed")
