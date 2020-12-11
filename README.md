@@ -28,3 +28,8 @@ signature := manager.SignTFCClaim(recipientAddress, amount, nonce, admin)
 ```
 
 The signature string can be given to user to claim TFC tokens by themselves. 
+
+Get SDK version
+```go
+Version()
+```
