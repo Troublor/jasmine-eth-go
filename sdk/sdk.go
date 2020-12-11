@@ -165,3 +165,10 @@ func (sdk *SDK) TFC(tfcAddress Address) (tfc *TFC, err error) {
 func (sdk *SDK) Manager(managerAddress Address) (manager *Manager, err error) {
 	return NewManager(sdk.backend, managerAddress)
 }
+
+func (sdk *SDK) Version() struct {
+	VersionStr string
+	VersionNum int
+} {
+	return Version()
+}

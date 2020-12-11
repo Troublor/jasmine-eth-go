@@ -1,4 +1,4 @@
-package jasmine_eth_go
+package sdk
 
 import (
 	"fmt"
@@ -7,4 +7,6 @@ import (
 
 func TestVersion(t *testing.T) {
 	fmt.Println(Version())
+	newSDK, _ := NewSDK("http://localhost:8545")
+	fmt.Println(newSDK.Version())
 }

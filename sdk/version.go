@@ -1,4 +1,4 @@
-package jasmine_eth_go
+package sdk
 
 import "fmt"
 
