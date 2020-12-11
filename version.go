@@ -5,7 +5,7 @@ import "fmt"
 const (
 	major = 0
 	minor = 0
-	patch = 6
+	patch = 7
 )
 
 func VersionStr() string {
