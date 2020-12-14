@@ -72,3 +72,7 @@ func (b *MockBackend) SendTransaction(ctx context.Context, tx *types.Transaction
 func (b *MockBackend) SubscribeNewTransaction(ch chan *types.Transaction) event.Subscription {
 	return b.newTxFeed.Subscribe(ch)
 }
+
+func (b *MockBackend) NetworkID(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(2020), nil
+}

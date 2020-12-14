@@ -1,12 +1,14 @@
 package sdk
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
+	"math/big"
 	"strings"
 )
 
@@ -14,6 +16,7 @@ type Backend interface {
 	bind.ContractBackend
 	ethereum.ChainReader
 	ethereum.TransactionReader
+	NetworkID(ctx context.Context) (*big.Int, error)
 }
 
 type Account struct {
