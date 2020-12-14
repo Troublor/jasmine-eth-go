@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"context"
-	"fmt"
 	"github.com/Troublor/jasmine-eth-go/token"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -224,7 +223,6 @@ func (tfc *TFC) BridgeTFCExchange(ctx context.Context, depositTransactionHash st
 	}
 	recipient = Address(msg.From().Hex())
 	// transaction confirmed
-	fmt.Println("mint")
 	doneCh, errCh = tfc.Mint(ctx, recipient, amount, minter)
 	return recipient, nil, doneCh, errCh
 }
