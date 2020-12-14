@@ -2,9 +2,12 @@ package sdk
 
 import (
 	"context"
+	"fmt"
 	"github.com/Troublor/jasmine-eth-go/token"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
 )
 
@@ -175,3 +178,53 @@ func (tfc *TFC) MintSync(ctx context.Context, to Address, amount *big.Int, sende
 }
 
 /* Anonymous wrappers */
+
+func (tfc *TFC) BridgeTFCExchange(ctx context.Context, depositTransactionHash string, amount *big.Int, minter *Account, depositTransactionConfirmationRequirement int) (recipient Address, transactionHashErr error, doneCh chan interface{}, errCh chan error) {
+	chainID, err := tfc.backend.NetworkID(context.Background())
+	if err != nil {
+		return "", err, nil, nil
+	}
+
+	tx, pending, err := tfc.backend.TransactionByHash(ctx, common.HexToHash(depositTransactionHash))
+	if err == ethereum.NotFound {
+		return "", UnknownTransactionHashErr, nil, nil
+	} else if err != nil {
+		return "", err, nil, nil
+	}
+	if pending {
+		return "", UnconfirmedTransactionErr, nil, nil
+	}
+
+	msg, err := tx.AsMessage(types.NewEIP155Signer(chainID))
+	if err != nil {
+		return "", err, nil, nil
+	}
+
+	receipt, err := tfc.backend.TransactionReceipt(ctx, common.HexToHash(depositTransactionHash))
+	if err == ethereum.NotFound {
+		return "", UnknownTransactionHashErr, nil, nil
+	} else if err != nil {
+		return "", err, nil, nil
+	}
+	// check if receipt is on canonical chain
+	blockHash := receipt.BlockHash
+	canonicalBlock, err := tfc.backend.BlockByNumber(ctx, receipt.BlockNumber)
+	if err != nil {
+		return "", err, nil, nil
+	}
+	if blockHash != canonicalBlock.Hash() {
+		return "", UnconfirmedTransactionErr, nil, nil
+	}
+	currentBlock, err := tfc.backend.BlockByNumber(ctx, nil)
+	if err != nil {
+		return "", err, nil, nil
+	}
+	if currentBlock.Number().Sub(currentBlock.Number(), receipt.BlockNumber).Cmp(big.NewInt(int64(depositTransactionConfirmationRequirement))) < 0 {
+		return "", UnconfirmedTransactionErr, nil, nil
+	}
+	recipient = Address(msg.From().Hex())
+	// transaction confirmed
+	fmt.Println("mint")
+	doneCh, errCh = tfc.Mint(ctx, recipient, amount, minter)
+	return recipient, nil, doneCh, errCh
+}

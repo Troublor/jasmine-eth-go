@@ -1,5 +1,7 @@
 package sdk
 
+import "errors"
+
 var ConfirmationRequirement = 0
 
 var PredefinedPrivateKeys = []string{
@@ -22,3 +24,8 @@ func init() {
 		PredefinedAccounts[i], _ = retrieveAccount(key)
 	}
 }
+
+var (
+	UnknownTransactionHashErr = errors.New("unknown transaction hash")
+	UnconfirmedTransactionErr = errors.New("transaction does not have enough block confirmation")
+)

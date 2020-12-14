@@ -2,6 +2,7 @@ package sdk
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 )
@@ -80,5 +81,47 @@ func TestTFC_Transfer(t *testing.T) {
 	}
 	if balance0.Cmp(big.NewInt(0)) != 0 || balance1.Cmp(amount) != 0 {
 		t.Fatal("transfer does not work")
+	}
+}
+
+func TestTFC_BridgeTFCExchange(t *testing.T) {
+	tfcAddress := Address("0x401Ef2b876Db2608e4A353800BBaD1E3e3Ea8B46")
+	sdk, err := NewSDK("wss://rinkeby.infura.io/ws/v3/e8e5b9ad18ad4daeb0e01a522a989d66")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tfc, err := sdk.TFC(tfcAddress)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	minter, err := sdk.RetrieveAccount("0x96ca1b47bd2f7b6c1a3018e6038be291c9f5ff9556e5200f677c295693a31c60")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	amount := new(big.Int)
+	amount.SetString("1000000000000000000", 10)
+
+	fmt.Println("start")
+	recipient, err, doneCh, errCh := tfc.BridgeTFCExchange(
+		context.Background(),
+		"0x6c6041761648675aae392853f10ac10583b1c0361da5a1e279f0f1b554de3fa0",
+		amount,
+		minter,
+		6,
+	)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println("Mint to " + recipient)
+	select {
+	case <-doneCh:
+		fmt.Println("Mint done")
+	case err = <-errCh:
+		t.Fatal(err)
 	}
 }
