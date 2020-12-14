@@ -226,3 +226,72 @@ func (tfc *TFC) BridgeTFCExchange(ctx context.Context, depositTransactionHash st
 	doneCh, errCh = tfc.Mint(ctx, recipient, amount, minter)
 	return recipient, nil, doneCh, errCh
 }
+
+func (tfc *TFC) BridgeTFCExchangeAsync(ctx context.Context, depositTransactionHash string, amount *big.Int, minter *Account, depositTransactionConfirmationRequirement int) (recipient Address, mintTransactionHash string, err error) {
+	chainID, err := tfc.backend.NetworkID(context.Background())
+	if err != nil {
+		return "", "", err
+	}
+
+	tx, pending, err := tfc.backend.TransactionByHash(ctx, common.HexToHash(depositTransactionHash))
+	if err == ethereum.NotFound {
+		return "", "", UnknownTransactionHashErr
+	} else if err != nil {
+		return "", "", err
+	}
+	if pending {
+		return "", "", UnconfirmedTransactionErr
+	}
+
+	msg, err := tx.AsMessage(types.NewEIP155Signer(chainID))
+	if err != nil {
+		return "", "", err
+	}
+
+	receipt, err := tfc.backend.TransactionReceipt(ctx, common.HexToHash(depositTransactionHash))
+	if err == ethereum.NotFound {
+		return "", "", UnknownTransactionHashErr
+	} else if err != nil {
+		return "", "", err
+	}
+	// check if receipt is on canonical chain
+	blockHash := receipt.BlockHash
+	canonicalBlock, err := tfc.backend.BlockByNumber(ctx, receipt.BlockNumber)
+	if err != nil {
+		return "", "", err
+	}
+	if blockHash != canonicalBlock.Hash() {
+		return "", "", UnconfirmedTransactionErr
+	}
+	currentBlock, err := tfc.backend.BlockByNumber(ctx, nil)
+	if err != nil {
+		return "", "", err
+	}
+	if currentBlock.Number().Sub(currentBlock.Number(), receipt.BlockNumber).Cmp(big.NewInt(int64(depositTransactionConfirmationRequirement))) < 0 {
+		return "", "", UnconfirmedTransactionErr
+	}
+	recipient = Address(msg.From().Hex())
+
+	// send mint transaction
+	auth := bind.NewKeyedTransactor(minter.privateKey)
+	tx, err = tfc.contract.Mint(auth, recipient.address(), amount)
+	if err != nil {
+		return "", "", err
+	}
+	return recipient, tx.Hash().Hex(), nil
+}
+
+func (tfc *TFC) UntilBridgeTFCExchangeComplete(ctx context.Context, mintTransactionHash string, confirmationRequirement int) (doneCh chan interface{}, errCh chan error) {
+	doneCh = make(chan interface{}, 0)
+	errCh = make(chan error, 0)
+	receiptCh, eCh := tfc.AsyncTransaction(ctx, common.HexToHash(mintTransactionHash), confirmationRequirement)
+	go func() {
+		select {
+		case <-receiptCh:
+			close(doneCh)
+		case err := <-eCh:
+			errCh <- err
+		}
+	}()
+	return doneCh, errCh
+}
