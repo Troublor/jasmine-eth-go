@@ -85,13 +85,13 @@ func TestTFC_Transfer(t *testing.T) {
 }
 
 func TestTFC_BridgeTFCExchange(t *testing.T) {
-	tfcAddress := Address("0x401Ef2b876Db2608e4A353800BBaD1E3e3Ea8B46")
+	erc20ContractAddress := Address("0x401Ef2b876Db2608e4A353800BBaD1E3e3Ea8B46")
 	sdk, err := NewSDK("wss://rinkeby.infura.io/ws/v3/e8e5b9ad18ad4daeb0e01a522a989d66")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	tfc, err := sdk.TFC(tfcAddress)
+	tfcContract, err := sdk.TFC(erc20ContractAddress)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,13 +105,14 @@ func TestTFC_BridgeTFCExchange(t *testing.T) {
 	amount.SetString("1000000000000000000", 10)
 
 	fmt.Println("start")
-	recipient, err, doneCh, errCh := tfc.BridgeTFCExchange(
+	recipient, txHash, err := tfcContract.BridgeTFCExchangeAsync(
 		context.Background(),
-		"0x6c6041761648675aae392853f10ac10583b1c0361da5a1e279f0f1b554de3fa0",
+		"0xd551212792aa60482695c1e6eef52e8455a36e82d558583f77d8a572d3b67b77",
 		amount,
 		minter,
 		6,
 	)
+	doneCh, errCh := tfcContract.UntilBridgeTFCExchangeComplete(context.Background(), txHash, 0)
 
 	if err != nil {
 		t.Fatal(err)
