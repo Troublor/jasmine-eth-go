@@ -15,6 +15,7 @@ import (
 type Backend interface {
 	bind.ContractBackend
 	ethereum.ChainReader
+	ethereum.ChainStateReader
 	ethereum.TransactionReader
 	NetworkID(ctx context.Context) (*big.Int, error)
 }
