@@ -2,17 +2,21 @@ package sdk
 
 import (
 	"context"
+	"fmt"
 	"github.com/Troublor/jasmine-eth-go/token"
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"math/big"
+	"strings"
 )
 
 type TFC struct {
 	*provider
 
+	address  Address
 	contract *token.TFCToken
 }
 
@@ -22,6 +26,7 @@ Create a new TFC instance by providing the sdk object and the Address of TFC ERC
 func NewTFC(backend Backend, tfcAddress Address) (tfc *TFC, err error) {
 	tfc = &TFC{
 		provider: NewProvider(backend),
+		address:  tfcAddress,
 	}
 	tfc.contract, err = token.NewTFCToken(common.HexToAddress(string(tfcAddress)), backend)
 	if err != nil {
@@ -225,6 +230,169 @@ func (tfc *TFC) BridgeTFCExchange(ctx context.Context, depositTransactionHash st
 	// transaction confirmed
 	doneCh, errCh = tfc.Mint(ctx, recipient, amount, minter)
 	return recipient, nil, doneCh, errCh
+}
+
+func (tfc *TFC) EstimateTFCExchangeFee(ctx context.Context, recipient Address, amount *big.Int, bridgeAccount *Account, minGas uint64, transactionFeeRate float64) (requiredTransferAmount *big.Int, estimatedGas uint64, gasPrice *big.Int, err error) {
+	gasPrice, err = tfc.backend.SuggestGasPrice(ctx)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	parsedABI, err := abi.JSON(strings.NewReader(token.TFCTokenABI))
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	// encode input
+	input, err := parsedABI.Pack("mint", recipient.address(), amount)
+	if err != nil {
+		return nil, 0, nil, err
+	}
+	// estimate gas
+	// Gas estimation cannot succeed without code for method invocations
+	if code, err := tfc.backend.PendingCodeAt(ctx, tfc.address.address()); err != nil {
+		return nil, 0, nil, err
+	} else if len(code) == 0 {
+		return nil, 0, nil, bind.ErrNoCode
+	}
+	// If the contract surely has code (or code is not needed), estimate the transaction
+	tfcAddress := tfc.address.address()
+	msg := ethereum.CallMsg{From: bridgeAccount.address, To: &tfcAddress, GasPrice: gasPrice, Value: big.NewInt(0), Data: input}
+	estimatedGas, err = tfc.backend.EstimateGas(ctx, msg)
+	if err != nil && strings.Contains(err.Error(), "insufficient funds") {
+		estimatedGas = 60000 // if estimate gas fails due to bridge account has no balance, assign a default safe gasLimit for ERC20 mint
+	} else if err != nil {
+		return nil, 0, nil, fmt.Errorf("failed to estimate gas needed: %v", err)
+	}
+	if estimatedGas < minGas {
+		estimatedGas = minGas
+	}
+	// calculate fee with rate
+	fee := new(big.Int).Mul(gasPrice, big.NewInt(int64(estimatedGas)))
+	interestedFee := new(big.Float).Mul(new(big.Float).SetInt(fee), big.NewFloat(1+transactionFeeRate))
+	requiredTransferAmount, accuracy := interestedFee.Int(nil)
+	if accuracy == big.Below &&
+		interestedFee.Cmp(new(big.Float).SetInt(requiredTransferAmount)) > 0 {
+		// add one gas
+		requiredTransferAmount = requiredTransferAmount.Add(requiredTransferAmount, gasPrice)
+	}
+	return requiredTransferAmount, estimatedGas, gasPrice, nil
+}
+
+func (tfc *TFC) CheckTransactionFeeDeposit(ctx context.Context, depositTransactionHash string, bridgeAccountAddress Address, depositTransactionConfirmationRequirement int) (recipient Address, depositAmount *big.Int, err error) {
+	chainID, err := tfc.backend.NetworkID(context.Background())
+	if err != nil {
+		return "", nil, err
+	}
+
+	tx, pending, err := tfc.backend.TransactionByHash(ctx, common.HexToHash(depositTransactionHash))
+	if err == ethereum.NotFound {
+		return "", nil, UnknownTransactionHashErr
+	} else if err != nil {
+		return "", nil, err
+	}
+	if pending {
+		return "", nil, UnconfirmedTransactionErr
+	}
+
+	msg, err := tx.AsMessage(types.NewEIP155Signer(chainID))
+	if err != nil {
+		return "", nil, err
+	}
+
+	if *msg.To() != bridgeAccountAddress.address() {
+		return "", nil, InvalidDepositErr
+	}
+
+	receipt, err := tfc.backend.TransactionReceipt(ctx, common.HexToHash(depositTransactionHash))
+	if err == ethereum.NotFound {
+		return "", nil, UnknownTransactionHashErr
+	} else if err != nil {
+		return "", nil, err
+	}
+	// check if receipt is on canonical chain
+	blockHash := receipt.BlockHash
+	canonicalBlock, err := tfc.backend.BlockByNumber(ctx, receipt.BlockNumber)
+	if err != nil {
+		return "", nil, err
+	}
+	if blockHash != canonicalBlock.Hash() {
+		return "", nil, UnconfirmedTransactionErr
+	}
+	currentBlock, err := tfc.backend.BlockByNumber(ctx, nil)
+	if err != nil {
+		return "", nil, err
+	}
+	if currentBlock.Number().Sub(currentBlock.Number(), receipt.BlockNumber).Cmp(big.NewInt(int64(depositTransactionConfirmationRequirement))) < 0 {
+		return "", nil, UnconfirmedTransactionErr
+	}
+	recipient = Address(msg.From().Hex())
+	return recipient, tx.Value(), nil
+}
+
+func (tfc *TFC) SendMintTransaction(ctx context.Context, recipient Address, amount *big.Int, minter *Account, depositAmount *big.Int, estimatedGas uint64, gasPrice *big.Int, transactionFeeRate float64) (mintTransactionHash string, err error) {
+	// get the fee received from user
+	receivedFee := depositAmount
+	// make sure the minter account has at least receivedFee amount of ETH
+	balance, err := tfc.backend.BalanceAt(ctx, minter.address, nil)
+	if err != nil {
+		return "", err
+	}
+	if balance.Cmp(receivedFee) < 0 {
+		return "", InsufficientBalanceErr
+	}
+	// deduct transaction fee rate
+	txFee := new(big.Float).Quo(new(big.Float).SetInt(receivedFee), big.NewFloat(1+transactionFeeRate))
+
+	// encode input
+	parsedABI, err := abi.JSON(strings.NewReader(token.TFCTokenABI))
+	if err != nil {
+		return "", err
+	}
+	// pack mint transaction input
+	input, err := parsedABI.Pack("mint", recipient.address(), amount)
+	if err != nil {
+		return "", err
+	}
+
+	// estimate gas if estimatedGas == 0
+	// Gas estimation cannot succeed without code for method invocations
+	if code, err := tfc.backend.PendingCodeAt(ctx, tfc.address.address()); err != nil {
+		return "", err
+	} else if len(code) == 0 {
+		return "", bind.ErrNoCode
+	}
+	// If the contract surely has code (or code is not needed), estimate the transaction
+	tfcAddress := tfc.address.address()
+	msg := ethereum.CallMsg{From: minter.address, To: &tfcAddress, GasPrice: gasPrice, Value: big.NewInt(0), Data: input}
+	gas, err := tfc.backend.EstimateGas(ctx, msg)
+	if err != nil {
+		return "", fmt.Errorf("failed to estimate gas needed: %v", err)
+	}
+	if estimatedGas == 0 {
+		estimatedGas = gas
+	} else if estimatedGas > 0 && estimatedGas < gas {
+		return "", InsufficientGasErr
+	}
+
+	// if gasPrice is zero or nil, calculate gasPrice using estimatedGas and txFee
+	if gasPrice == nil || gasPrice.Cmp(big.NewInt(0)) == 0 {
+		// calculate gasPrice
+		calculatedGasPrice := new(big.Float).Quo(txFee, big.NewFloat(float64(estimatedGas)))
+		gasPrice, _ = calculatedGasPrice.Int(nil)
+	}
+
+	if txFee.Cmp(new(big.Float).Mul(big.NewFloat(float64(estimatedGas)), new(big.Float).SetInt(gasPrice))) < 0 {
+		return "", InsufficientTransactionFeeErr
+	}
+
+	// send mint transaction
+	auth := bind.NewKeyedTransactor(minter.privateKey)
+	auth.GasLimit = estimatedGas
+	auth.GasPrice = gasPrice
+	tx, err := tfc.contract.Mint(auth, recipient.address(), amount)
+	if err != nil {
+		return "", err
+	}
+	return tx.Hash().Hex(), nil
 }
 
 func (tfc *TFC) BridgeTFCExchangeAsync(ctx context.Context, depositTransactionHash string, amount *big.Int, minter *Account, depositTransactionConfirmationRequirement int) (recipient Address, mintTransactionHash string, err error) {

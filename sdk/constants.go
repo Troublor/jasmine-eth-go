@@ -26,6 +26,10 @@ func init() {
 }
 
 var (
-	UnknownTransactionHashErr = errors.New("unknown transaction hash")
-	UnconfirmedTransactionErr = errors.New("transaction does not have enough block confirmation")
+	UnknownTransactionHashErr     = errors.New("unknown transaction hash")
+	UnconfirmedTransactionErr     = errors.New("transaction does not have enough block confirmation")
+	InsufficientBalanceErr        = errors.New("account does not have enough balance")
+	InsufficientGasErr            = errors.New("insufficient gas for transaction")
+	InsufficientTransactionFeeErr = errors.New("transaction fee is not enough to cover gas * gas price")
+	InvalidDepositErr             = errors.New("transaction fee deposit is invalid")
 )
