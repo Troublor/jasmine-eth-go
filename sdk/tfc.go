@@ -364,13 +364,16 @@ func (tfc *TFC) SendMintTransaction(ctx context.Context, recipient Address, amou
 	tfcAddress := tfc.address.address()
 	msg := ethereum.CallMsg{From: minter.address, To: &tfcAddress, GasPrice: gasPrice, Value: big.NewInt(0), Data: input}
 	gas, err := tfc.backend.EstimateGas(ctx, msg)
-	if err != nil {
+	if err != nil && strings.Contains(err.Error(), "insufficient funds") {
+		estimatedGas = 60000 // if estimate gas fails due to bridge account does not have enough balance, assign a default safe gasLimit for ERC20 mint
+	} else if err != nil {
 		return "", fmt.Errorf("failed to estimate gas needed: %v", err)
-	}
-	if estimatedGas == 0 {
-		estimatedGas = gas
-	} else if estimatedGas > 0 && estimatedGas < gas {
-		return "", InsufficientGasErr
+	} else {
+		if estimatedGas == 0 {
+			estimatedGas = gas
+		} else if estimatedGas > 0 && estimatedGas < gas {
+			return "", InsufficientGasErr
+		}
 	}
 
 	// if gasPrice is zero or nil, calculate gasPrice using estimatedGas and txFee
