@@ -113,7 +113,7 @@ func TestTFC_BridgeTFCExchange(t *testing.T) {
 	fmt.Println("estimated gas", estimatedGas)
 	fmt.Println("gas price", gasPrice.Uint64())
 
-	depositTransactionHash := "0x0e87e93aa08fd149f4f66e6939543b220b2ac77697f786c0ca5e4e88022c564d"
+	depositTransactionHash := "0x37e137a35944045a02c78e994b5332cba9acf62595accd31829c1f1b08ca5ba8"
 	recipient, depositAmount, err := tfcContract.CheckTransactionFeeDeposit(context.Background(), depositTransactionHash, bridgeAccount.Address(), 6)
 	if err != nil {
 		t.Fatal(err)
@@ -127,9 +127,9 @@ func TestTFC_BridgeTFCExchange(t *testing.T) {
 		amount,
 		bridgeAccount,
 		depositAmount,
-		0,
-		big.NewInt(157000000000),
-		0.2,
+		estimatedGas,
+		gasPrice,
+		0.1,
 	)
 	if err != nil {
 		t.Fatal(err)

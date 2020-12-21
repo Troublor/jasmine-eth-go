@@ -257,7 +257,7 @@ func (tfc *TFC) EstimateTFCExchangeFee(ctx context.Context, recipient Address, a
 	tfcAddress := tfc.address.address()
 	msg := ethereum.CallMsg{From: bridgeAccount.address, To: &tfcAddress, GasPrice: gasPrice, Value: big.NewInt(0), Data: input}
 	estimatedGas, err = tfc.backend.EstimateGas(ctx, msg)
-	if err != nil && strings.Contains(err.Error(), "insufficient funds") {
+	if err != nil && (strings.Contains(err.Error(), "insufficient funds") || strings.Contains(err.Error(), "gas required exceeds allowance")) {
 		estimatedGas = 60000 // if estimate gas fails due to bridge account has no balance, assign a default safe gasLimit for ERC20 mint
 	} else if err != nil {
 		return nil, 0, nil, fmt.Errorf("failed to estimate gas needed: %v", err)
