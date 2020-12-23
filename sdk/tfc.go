@@ -290,7 +290,7 @@ func (tfc *TFC) CheckTransactionFeeDeposit(ctx context.Context, depositTransacti
 		return "", nil, err
 	}
 	if pending {
-		return "", nil, UnconfirmedTransactionErr
+		return "", tx.Value(), UnconfirmedTransactionErr
 	}
 
 	msg, err := tx.AsMessage(types.NewEIP155Signer(chainID))
@@ -315,14 +315,14 @@ func (tfc *TFC) CheckTransactionFeeDeposit(ctx context.Context, depositTransacti
 		return "", nil, err
 	}
 	if blockHash != canonicalBlock.Hash() {
-		return "", nil, UnconfirmedTransactionErr
+		return "", tx.Value(), UnconfirmedTransactionErr
 	}
 	currentBlock, err := tfc.backend.BlockByNumber(ctx, nil)
 	if err != nil {
 		return "", nil, err
 	}
 	if currentBlock.Number().Sub(currentBlock.Number(), receipt.BlockNumber).Cmp(big.NewInt(int64(depositTransactionConfirmationRequirement))) < 0 {
-		return "", nil, UnconfirmedTransactionErr
+		return "", tx.Value(), UnconfirmedTransactionErr
 	}
 	recipient = Address(msg.From().Hex())
 	return recipient, tx.Value(), nil
